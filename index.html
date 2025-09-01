@@ -817,7 +817,7 @@ function firstRun(){
   todayGoal.textContent=PROG.dailyGoal; updateStats(); applyMode();
 }
 firstRun();
-  // Auto-import starter.json při prvním spuštění
+// Auto-import starter.json při prvním spuštění
 (async () => {
   if (!(load(KEY_WORDS) || []).length && !(load(KEY_PHRASES) || []).length) {
     try {
