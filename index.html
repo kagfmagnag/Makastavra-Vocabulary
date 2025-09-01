@@ -817,6 +817,19 @@ function firstRun(){
   todayGoal.textContent=PROG.dailyGoal; updateStats(); applyMode();
 }
 firstRun();
+  // Auto-import starter.json při prvním spuštění
+(async () => {
+  if (!(load(KEY_WORDS) || []).length && !(load(KEY_PHRASES) || []).length) {
+    try {
+      const res = await fetch('starter.json', {cache:'no-store'});
+      const pack = await res.json();
+      if (Array.isArray(pack.words)) { setData(pack.words); }
+      if (Array.isArray(pack.phrases)) { save(KEY_PHRASES, pack.phrases); }
+      updateStats(); renderTable();
+    } catch(e) { console.warn('starter.json nenalezen nebo chyba', e); }
+  }
+})();
+
 </script>
 </body>
 </html>
