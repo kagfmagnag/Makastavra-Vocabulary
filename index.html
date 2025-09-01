@@ -1,0 +1,822 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VocabTrainer – Pro</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b1220">
+<style>
+  :root{--bg1:#f7f8fc;--bg2:#eef1f7;--card:rgba(255,255,255,.85);--text:#0f172a;--muted:#6b7280;--border:rgba(17,24,39,.12);--accent:#6366f1;--ok:#16a34a;--bad:#dc2626;--shadow:0 10px 30px rgba(2,6,23,.08)}
+  [data-theme="dark"]{--bg1:#0b1220;--bg2:#0e172a;--card:rgba(17,24,39,.7);--text:#e5e7eb;--muted:#94a3b8;--border:rgba(148,163,184,.2);--shadow:0 10px 30px rgba(0,0,0,.35)}
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--text);font:16px/1.45 system-ui,Segoe UI,Roboto,Arial;background:radial-gradient(1000px 800px at 10% -10%,var(--bg2),transparent 60%),radial-gradient(1000px 800px at 110% 10%,var(--bg2),transparent 60%),linear-gradient(180deg,var(--bg1),var(--bg2));min-height:100dvh}
+  .wrap{max-width:1100px;margin:0 auto;padding:26px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .btn{border:1px solid var(--border);background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.7));padding:10px 14px;border-radius:12px;cursor:pointer;box-shadow:var(--shadow);backdrop-filter:blur(6px);transition:transform .08s,box-shadow .2s,background .2s,border-color .2s}
+  .btn:hover{transform:translateY(-1px)}
+  .btn.primary{color:#fff;background:linear-gradient(180deg,var(--accent),color-mix(in srgb,var(--accent) 80%,#000));border-color:color-mix(in srgb,var(--accent) 60%,#000)}
+  .btn.small{padding:6px 10px;border-radius:10px}
+  .btn.tab{padding:8px 12px;border-radius:999px}
+  .btn.tab.active{background:var(--accent);color:#fff;border-color:color-mix(in srgb,var(--accent) 70%,#000)}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);backdrop-filter:blur(10px)}
+  .pad{padding:18px}
+  .muted{color:var(--muted);font-size:13px}
+  .h1{font-weight:800;font-size:26px;letter-spacing:.2px}
+  .grid{display:grid;gap:12px}
+  .stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+  input,textarea,select{border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,.85);color:var(--text);backdrop-filter:blur(6px)}
+  [data-theme="dark"] input,[data-theme="dark"] textarea,[data-theme="dark"] select{background:rgba(15,23,42,.6)}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;text-align:left;border-top:1px solid var(--border)}
+  th{background:rgba(255,255,255,.55);color:var(--muted)}
+  [data-theme="dark"] th{background:rgba(15,23,42,.45)}
+  .front{font-size:32px;font-weight:800;margin:8px 0 16px}
+  .answer{font-size:24px;font-weight:700;margin:10px 0 14px}
+  .pill{display:inline-block;font-size:12px;color:#fff;background:var(--accent);border:1px solid transparent;border-radius:999px;padding:4px 9px}
+  .bar{height:10px;border-radius:999px;background:rgba(0,0,0,.08);overflow:hidden;border:1px solid var(--border)}
+  .fill{height:100%;width:0;background:var(--accent)}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:6px 10px;background:var(--card)}
+  .dot{width:10px;height:10px;border-radius:999px;background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 15%,transparent)}
+  .achv{display:inline-flex;gap:8px;align-items:center;border:1px dashed var(--border);border-radius:12px;padding:8px 10px;margin:4px 6px 0 0}
+  .achv.got{border-style:solid}
+  @keyframes pop{from{transform:scale(.96);opacity:.6}to{transform:scale(1);opacity:1}}
+  .pop{animation:pop .2s ease}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+  .trans{white-space:pre-wrap;background:rgba(0,0,0,.05);border:1px dashed var(--border);border-radius:12px;padding:10px}
+  [data-theme="dark"] .trans{background:rgba(0,0,0,.2)}
+  canvas{max-width:100%;height:260px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="row" style="justify-content:space-between">
+    <div class="h1">VocabTrainer – Pro</div>
+    <div class="row">
+      <label class="chip" title="Barva akcentu"><span class="dot"></span><input id="accentPicker" type="color" value="#6366f1" style="border:none;background:transparent;padding:0;width:26px;height:26px;cursor:pointer"></label>
+      <button id="themeBtn" class="btn small">🌓 Téma</button>
+      <button id="exportBtn" class="btn small">Export</button>
+      <button id="importBtn" class="btn small">Import</button>
+      <button id="dedupeBtn" class="btn small" title="Najít a sloučit duplicity">🧹 Deduplikace</button>
+      <button id="installBtn" class="btn small" style="display:none">📲 Instalovat</button>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <section class="row" style="margin:6px 0 10px">
+    <div class="row">
+      <button class="btn tab active" id="tabWords">Slovíčka</button>
+      <button class="btn tab" id="tabPhrases">Fráze</button>
+      <button class="btn tab" id="tabTalk">Konverzace</button>
+      <button class="btn tab" id="tabStats">Statistiky</button>
+      <button class="btn tab" id="tabQuiz">Kvíz</button>
+    </div>
+    <div class="row" id="phraseFilters">
+      <label class="muted">Kategorie</label>
+      <select id="catSelect">
+        <option value="travel">Cestování</option>
+        <option value="restaurant">Restaurace</option>
+        <option value="shopping">Nakupování</option>
+        <option value="smalltalk">Small talk</option>
+        <option value="emergency">Nouze</option>
+        <option value="all">Vše</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- Progres & Cíle -->
+  <section class="grid stats" style="margin:10px 0 16px" id="statsRow">
+    <div class="card pad"><div class="muted">Dnes k opakování</div><div id="statDue" style="font-size:22px;font-weight:700">0</div></div>
+    <div class="card pad"><div class="muted">Mistrovské (≥ 21 dní)</div><div id="statMastered" style="font-size:22px;font-weight:700">0</div></div>
+    <div class="card pad">
+      <div class="muted">Dnes správně</div>
+      <div class="row" style="align-items:flex-end"><div id="todayGood" style="font-size:22px;font-weight:800" class="ok">0</div><div class="muted">/ <span id="todayGoal">50</span></div></div>
+      <div class="bar" style="margin-top:8px"><div id="goalFill" class="fill" style="width:0%"></div></div>
+      <div class="muted" style="margin-top:6px">Streak: <b id="streak">0</b> dní</div>
+    </div>
+    <div class="card pad"><div class="muted">Celkem karet</div><div id="statCount" style="font-size:22px;font-weight:700">0</div><div class="muted" style="margin-top:6px">Ukončení dne: <span id="dayStatus">nesplněno</span></div></div>
+  </section>
+
+  <!-- Cíl + Odznaky -->
+  <section class="card pad" style="margin:6px 0 16px" id="goalCard">
+    <div class="row"><div class="muted">Denní cíl:</div><input id="goalInput" type="number" min="1" max="10000" value="50" style="width:110px"><button id="saveGoalBtn" class="btn small">Uložit</button><span class="muted">Dnes: <b id="todayDateLabel"></b></span></div>
+    <div class="row" style="margin-top:8px"><span class="muted">Odznaky:</span><div id="achWrap" class="row"></div></div>
+  </section>
+
+  <!-- Toolbar -->
+  <section class="row" style="margin:6px 0 14px" id="toolbar">
+    <button id="studyBtn" class="btn primary">Začít se učit</button>
+    <button id="dirBtn" class="btn">EN → CZ</button>
+    <input id="search" placeholder="Hledat…" style="width:220px">
+    <form id="addForm" class="row" onsubmit="return false">
+      <input id="addEN" placeholder="EN: apple / Where is the…?" style="width:240px">
+      <input id="addCZ" placeholder="CZ: jablko / Kde je …?" style="width:240px">
+      <select id="addCat">
+        <option value="">— bez kategorie —</option>
+        <option value="travel">Cestování</option><option value="restaurant">Restaurace</option><option value="shopping">Nakupování</option><option value="smalltalk">Small talk</option><option value="emergency">Nouze</option>
+      </select>
+      <button class="btn primary">Uložit</button>
+    </form>
+  </section>
+
+  <!-- Study -->
+  <section id="studyView" class="card pad" style="display:none">
+    <div class="row" style="justify-content:space-between"><div class="muted">Zbývá dnes: <span id="leftToday">0</span></div><div class="pill" id="masterChip">Učení</div></div>
+    <div class="front pop" id="frontTxt">front</div>
+    <div class="row" style="gap:8px;margin-top:6px">
+      <button class="btn small" id="speakFront" title="Přečíst otázku">🔊</button>
+      <input id="answerInput" placeholder="Napiš překlad…" style="flex:1;min-width:220px">
+      <button class="btn primary" id="checkBtn">Zkontrolovat (Enter)</button>
+      <button class="btn" id="hintBtn" title="Zobrazit nápovědu">Nápověda</button>
+      <button class="btn" id="showAnsBtn">Zobrazit odpověď</button>
+      <button class="btn small" id="speakBack" title="Přečíst správnou odpověď">🔊</button>
+    </div>
+    <div id="feedback" style="display:none;margin-top:10px"><div class="muted">Správná odpověď</div><div class="answer" id="backTxt">back</div><div id="judge" class="pill" style="margin-top:4px">—</div></div>
+    <div class="row" id="rateRow" style="display:none;margin-top:10px"><button class="btn" data-rate="again">1 Again</button><button class="btn" data-rate="hard">2 Hard</button><button class="btn primary" data-rate="good">3 Good</button><button class="btn" data-rate="easy">4 Easy</button></div>
+  </section>
+
+  <!-- Table -->
+  <section class="card pad" id="tableWrap">
+    <div class="row" style="justify-content:space-between;margin-bottom:6px"><div class="muted">Seznam karet</div><div class="pill">Kliknutím na buňku ji upravíš</div></div>
+    <div style="overflow:auto">
+      <table id="tab"><thead><tr id="theadRow"><th>EN</th><th>CZ</th><th>Kategorie</th><th>Další opakování</th><th>Interval</th><th>Reps</th><th>Akce</th></tr></thead><tbody id="tbody"></tbody></table>
+    </div>
+  </section>
+
+  <!-- Talk -->
+  <section id="talkWrap" class="card pad" style="display:none">
+    <div class="row">
+      <label>Téma</label><select id="topic"><option value="smalltalk">Small talk</option><option value="travel">Cestování</option><option value="restaurant">Restaurace</option><option value="shopping">Nakupování</option><option value="emergency">Nouze</option><option value="free">Volná konverzace</option></select>
+      <label>Obtížnost</label><select id="level"><option value="a1">A1</option><option value="a2" selected>A2</option><option value="b1">B1</option></select>
+      <label>Rychlost hlasu</label><input id="rate" type="range" min="0.7" max="1.3" step="0.05" value="1">
+      <label>Hlas</label><select id="voiceSel"></select>
+      <label><input id="autoAsk" type="checkbox" checked> Auto-další otázka</label>
+    </div>
+    <div class="row" style="margin:10px 0"><button id="speakBtn" class="btn">🔊 Přečti otázku (Ctrl+L)</button><button id="listenBtn" class="btn primary">🎤 Start (Enter)</button><button id="stopBtn" class="btn" disabled>⏹️ Stop</button></div>
+    <div class="front" id="question">Klikni „Přečti otázku“ nebo „Start“</div>
+    <div class="muted" id="expectHint"></div>
+    <div class="row" style="margin-top:8px"><span class="pill">Skóre: <b id="score">–</b></span><span class="pill">Klíčová slova: <b id="kwBadge">–</b></span><span class="pill">Délka: <b id="lenBadge">0 slov</b></span></div>
+    <div class="h1" style="font-size:18px;margin-top:12px">Tvoje odpověď</div><div id="transcript" class="trans mono">…</div><div id="feedbackTalk" class="muted" style="margin-top:6px"></div>
+    <div class="h1" style="font-size:18px;margin-top:12px">Historie</div><div id="log" class="mono" style="max-height:220px;overflow:auto;white-space:pre-wrap">–</div>
+  </section>
+
+  <!-- Stats -->
+  <section id="statsWrap" class="card pad" style="display:none">
+    <div class="h1" style="font-size:18px;margin-bottom:8px">Týdenní přehled</div>
+    <canvas id="chart" width="900" height="260"></canvas>
+    <div class="muted" style="margin-top:6px">Správné odpovědi za posledních 14 dní.</div>
+  </section>
+
+  <!-- Quiz -->
+  <section id="quizWrap" class="card pad" style="display:none">
+    <div class="row" style="justify-content:space-between">
+      <div class="h1" style="font-size:18px">Mini kvíz (10 otázek)</div>
+      <div class="row">
+        <select id="quizType">
+          <option value="mix">Mix</option>
+          <option value="mc">Výběr z možností</option>
+          <option value="typing">Psaní překladu</option>
+          <option value="listening">Poslech → přelož</option>
+        </select>
+        <button id="quizStart" class="btn primary">Start</button>
+      </div>
+    </div>
+    <div id="quizArea" style="margin-top:10px">
+      <div class="muted">Klikni „Start“.</div>
+    </div>
+  </section>
+
+  <footer class="muted" style="text-align:center;margin:16px 0 4px">Data se ukládají lokálně v prohlížeči (localStorage). Zkratky: Enter=Kontrola/Start/Stop, 1–4=Again/Hard/Good/Easy, S=Start/Stop, R=EN↔CZ.</footer>
+</div>
+
+<!-- Modal Import -->
+<div id="modal" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center">
+  <div class="card pad" style="max-width:720px;width:90vw;background:#fff">
+    <div class="h1" style="font-size:20px;margin-bottom:8px">Import</div>
+    <p class="muted" style="margin:6px 0 10px">Importuje se do <b id="importTargetLabel">slovíček</b>. Vložte <b>JSON</b> <code>[{"term":"apple","definition":"jablko"}]</code> nebo prostý seznam EN.</p>
+    <textarea id="importText" rows="12" style="width:100%;margin:6px 0 10px" placeholder='[{"term":"apple","definition":"jablko"}]'></textarea>
+    <div class="row" style="justify-content:flex-end"><button id="modalCancel" class="btn">Zrušit</button><button id="modalOk" class="btn primary">Importovat</button></div>
+  </div>
+</div>
+
+<script>
+/* ====== Core ====== */
+const DEFAULT_EASE=2.5, MIN_EASE=1.3;
+const KEY_WORDS='vocab_words_v1', KEY_PHRASES='vocab_phrases_v1', KEY_PROG='vocab_progress_v1';
+const THEME_KEY='vt_theme_v1', ACCENT_KEY='vt_accent_v1';
+const now=()=>Date.now();
+const daysFromNow=(d)=>{const x=new Date();x.setDate(x.getDate()+d);x.setHours(0,0,0,0);return x.getTime()};
+const uid=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
+const fmt=(ts)=>new Date(ts).toLocaleDateString();
+const todayKey=()=> new Date().toISOString().slice(0,10);
+
+function createCard(term,definition,cat){return {id:uid(),term:term.trim(),definition:(definition||'').trim(),category:cat||'',ease:DEFAULT_EASE,interval:0,reps:0,lapses:0,due:now(),last:0}}
+function schedule(card, rating){
+  const q={again:0,hard:3,good:4,easy:5}[rating], t=now();
+  let e=card.ease; e=Math.max(MIN_EASE, e+(0.1-(5-q)*(0.08+(5-q)*0.02)));
+  let i=card.interval;
+  if(q<3){ i=0; card.lapses=(card.lapses||0)+1; card.due=t+10*60*1000; }
+  else if(i===0){ i=1; card.due=daysFromNow(i); }
+  else if(i===1){ i=(q===3?3:4); card.due=daysFromNow(i); }
+  else { const m=q===3?1.2:(q===4?e:e*1.3); i=Math.round(i*m); card.due=daysFromNow(i); }
+  card.ease=e; card.interval=i; card.reps=(card.reps||0)+1; card.last=t;
+}
+
+const START_WORDS=[["the","ten"],["be","být"],["and","a"],["to","k, do"],["I","já"],["you","ty/vy"],["time","čas"],["good","dobrý"],["house","dům"],["book","kniha"]];
+const PHRASE_SEED=[["A table for two, please.","Stůl pro dva, prosím.","restaurant"],["Where is the nearest bus stop?","Kde je nejbližší autobusová zastávka?","travel"]];
+let WORDS = load(KEY_WORDS) || START_WORDS.map(([en,cz])=>createCard(en,cz,''));
+let PHRASES = load(KEY_PHRASES) || PHRASE_SEED.map(([en,cz,cat])=>createCard(en,cz,cat));
+
+function load(k){try{const raw=localStorage.getItem(k);return raw?JSON.parse(raw):null}catch{return null}}
+function save(k,x){localStorage.setItem(k,JSON.stringify(x))}
+
+const defaultProg={dailyGoal:50,days:{},streak:0,lastDay:null,achievements:{}};
+let PROG=load(KEY_PROG)||defaultProg;
+function incToday(deltaGood,deltaTotal){
+  const k=todayKey(); if(!PROG.days[k]) PROG.days[k]={good:0,total:0,goalDone:false};
+  PROG.days[k].good+= (deltaGood||0); PROG.days[k].total+=(deltaTotal||0);
+  if(!PROG.days[k].goalDone && PROG.days[k].good>=PROG.dailyGoal){ PROG.days[k].goalDone=true; bumpStreak(); }
+  save(KEY_PROG,PROG);
+}
+function bumpStreak(){
+  const k=todayKey(); if(PROG.lastDay!==k){
+    const y=new Date(); y.setDate(y.getDate()-1); const yk=y.toISOString().slice(0,10);
+    PROG.streak=(PROG.lastDay===yk)?(PROG.streak||0)+1:1;
+    PROG.lastDay=k; save(KEY_PROG,PROG);
+  }
+}
+function setDailyGoal(val){ PROG.dailyGoal=Math.max(1,Math.min(10000,Number(val)||50)); save(KEY_PROG,PROG); }
+function totalReps(){return [...WORDS,...PHRASES].reduce((a,c)=>a+(c.reps||0),0)}
+function countMastered(){return [...WORDS,...PHRASES].filter(c=>c.interval>=21).length}
+
+/* ====== DOM ====== */
+const $=(q)=>document.querySelector(q);
+const tbody=$('#tbody'), theadRow=$('#theadRow'), search=$('#search');
+const statDue=$('#statDue'), statCount=$('#statCount'), statMastered=$('#statMastered');
+const studyView=$('#studyView'), tableWrap=$('#tableWrap'), talkWrap=$('#talkWrap'), statsWrap=$('#statsWrap'), quizWrap=$('#quizWrap');
+const leftToday=$('#leftToday'), frontTxt=$('#frontTxt'), backTxt=$('#backTxt');
+const answerInput=$('#answerInput'); const checkBtn=$('#checkBtn'); const showAnsBtn=$('#showAnsBtn'); const feedback=$('#feedback'); const judge=$('#judge'); const rateRow=$('#rateRow');
+const dirBtn=$('#dirBtn'); let reverse=false;
+const tabWords=$('#tabWords'), tabPhrases=$('#tabPhrases'), tabTalk=$('#tabTalk'), tabStats=$('#tabStats'), tabQuiz=$('#tabQuiz');
+const phraseFilters=$('#phraseFilters'), catSelect=$('#catSelect'), addCat=$('#addCat');
+const goalFill=$('#goalFill'), todayGood=$('#todayGood'), todayGoal=$('#todayGoal'), dayStatus=$('#dayStatus'), streakEl=$('#streak'), todayDateLabel=$('#todayDateLabel'), goalInput=$('#goalInput'), saveGoalBtn=$('#saveGoalBtn'), achWrap=$('#achWrap');
+
+/* ====== Theme & Accent ====== */
+function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); localStorage.setItem(THEME_KEY, t); }
+function applyAccent(hex){ document.documentElement.style.setProperty('--accent', hex); localStorage.setItem(ACCENT_KEY, hex); const dot=document.querySelector('.dot'); if(dot) dot.style.background=hex; }
+(function initTheme(){
+  const savedTheme = localStorage.getItem(THEME_KEY) || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light');
+  applyTheme(savedTheme);
+  const savedAccent = localStorage.getItem(ACCENT_KEY) || '#6366f1'; applyAccent(savedAccent);
+  const picker = document.getElementById('accentPicker'); if(picker){ picker.value = savedAccent; picker.oninput = (e)=>applyAccent(e.target.value); }
+  document.getElementById('themeBtn').onclick = ()=> applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');
+})();
+
+/* ====== MODE ====== */
+let MODE='words';
+function currentData(){ return MODE==='words'? WORDS : PHRASES; }
+function setData(arr){ if(MODE==='words') WORDS=arr; else PHRASES=arr; }
+function saveData(){ save(MODE==='words'?KEY_WORDS:KEY_PHRASES, currentData()); }
+
+/* ====== Table render & edit ====== */
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;'}[ch])); }
+function renderTable(){}
+  const q=(search.value||'').toLowerCase();
+  if(MODE==='phrases'){ theadRow.innerHTML='<th>EN (fráze)</th><th>CZ</th><th>Kategorie</th><th>Další opakování</th><th>Interval</th><th>Reps</th><th>Akce</th>'; }
+  else { theadRow.innerHTML='<th>EN</th><th>CZ</th><th>Kategorie</th><th>Další opakování</th><th>Interval</th><th>Reps</th><th>Akce</th>'; }
+  const src=currentData().filter(c=>{
+    const catOK = (catSelect.value==='all' || (c.category||'')===catSelect.value);
+    const qOK=(c.term.toLowerCase().includes(q)||c.definition.toLowerCase().includes(q));
+    return catOK && qOK;
+  });
+  tbody.innerHTML=src.map(c=>{
+    const base=`<td data-k="term">${escapeHtml(c.term)}</td><td data-k="definition">${escapeHtml(c.definition)}</td>`;
+    const catCell=`<td data-k="category">${escapeHtml(c.category||'')}</td>`;
+    return `<tr data-id="${c.id}">${base}${catCell}<td>${fmt(c.due)}</td><td>${c.interval} d</td><td>${c.reps||0}</td><td><button class="btn small" data-del="${c.id}">Smazat</button></td></tr>`;
+  }).join('');
+  tbody.querySelectorAll('td[data-k]').forEach(td=>{
+    td.onclick=()=>{
+      const k=td.getAttribute('data-k'); const tr=td.closest('tr'); const id=tr.getAttribute('data-id');
+      const old=td.textContent; const inp=document.createElement(k==='category'?'select':'input');
+      if(k==='category'){ ['','travel','restaurant','shopping','smalltalk','emergency'].forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=(v||'—'); if(v===old) o.selected=true; inp.appendChild(o); }); }
+      else { inp.value=old; }
+      inp.style.width='100%'; td.innerHTML=''; td.appendChild(inp); inp.focus();
+      const finish=()=>{ const v=(k==='category'?inp.value:inp.value.trim()); td.textContent=v; const arr=currentData(); const card=arr.find(x=>x.id===id); card[k]=v; saveData(); updateStats(); };
+      inp.onkeydown=e=>{ if(e.key==='Enter') finish(); if(e.key==='Escape'){ td.textContent=old; } };
+      inp.onblur=finish;
+    };
+  });
+tbody.querySelectorAll('button[data-del]').forEach(b=>{
+  b.onclick=()=>{
+    const id=b.getAttribute('data-del');
+    setData(currentData().filter(c=>c.id!==id));
+    saveData(); 
+    renderTable(); 
+    updateStats();
+  };
+});
+
+
+/* ====== Prompts (s příklady) ====== */
+const PROMPTS={
+  smalltalk:{
+    a1:[
+      { q:"Hi! What's your name?", kw:["name","my name is"], example:"My name is Tom. Nice to meet you." },
+      { q:"How are you today?", kw:["fine","good","tired","not bad"], example:"I'm doing well, thank you. And you?" },
+      { q:"Where are you from?", kw:["from"], example:"I'm from the Czech Republic." }
+    ],
+    a2:[
+      { q:"What do you do in your free time?", kw:["free time","hobby","like"], example:"In my free time I go to the gym and watch movies." },
+      { q:"Tell me about your family.", kw:["family","brother","sister","parents"], example:"I have one younger sister and we are very close." }
+    ],
+    b1:[
+      { q:"What goals do you have this year?", kw:["goal","plan","learn","work"], example:"This year I want to improve my English and get a new job." }
+    ]
+  },
+  travel:{
+    a1:[
+      { q:"Where are you going to travel next?", kw:["go","travel","next"], example:"I'm going to travel to Italy next month." },
+      { q:"Do you prefer the mountains or the sea?", kw:["mountains","sea"], example:"I prefer the sea because I love swimming." }
+    ],
+    a2:[
+      { q:"How do you usually book your trips?", kw:["book","ticket","hotel"], example:"I usually book flights online and compare hotel prices." }
+    ],
+    b1:[
+      { q:"Describe your best trip and why it was special.", kw:["experience","because","favorite"], example:"My best trip was to Japan because the culture and food were amazing." }
+    ]
+  },
+  restaurant:{
+    a1:[
+      { q:"Order a drink, please.", kw:["water","juice","coffee","tea"], example:"Could I have a glass of water, please?" }
+    ],
+    a2:[
+      { q:"What is your favorite dish and why?", kw:["favorite","dish","because"], example:"My favorite dish is pasta because it's simple and delicious." }
+    ],
+    b1:[
+      { q:"Complain politely about a cold meal.", kw:["excuse me","cold","could you"], example:"Excuse me, my meal is cold. Could you please warm it up?" }
+    ]
+  },
+  shopping:{
+    a1:[
+      { q:"Ask for a different size.", kw:["size","bigger","smaller"], example:"Do you have this in a bigger size?" }
+    ],
+    a2:[
+      { q:"Compare two products you like.", kw:["cheaper","more expensive","better"], example:"This one is cheaper, but the other one is better quality." }
+    ],
+    b1:[
+      { q:"Negotiate a discount politely.", kw:["discount","offer","could you"], example:"Could you offer a small discount if I buy two?" }
+    ]
+  },
+  emergency:{
+    a1:[
+      { q:"Call for help. What do you say?", kw:["help","emergency"], example:"Help! Please call an ambulance!" }
+    ],
+    a2:[
+      { q:"Explain a health problem at the pharmacy.", kw:["pain","headache","allergy"], example:"I have a headache and I'm allergic to penicillin." }
+    ],
+    b1:[
+      { q:"Describe an accident you witnessed.", kw:["accident","happened","because"], example:"There was a car accident because the road was icy." }
+    ]
+  },
+  free:{
+    a1:[
+      { q:"Talk about your favorite food.", kw:["like","favorite","eat"], example:"I really like sushi because it's fresh and light." }
+    ],
+    a2:[
+      { q:"What do you do for work or study?", kw:["work","study","because"], example:"I work in IT as a tester because I enjoy problem-solving." }
+    ],
+    b1:[
+      { q:"If you could change one thing in your routine, what would it be?", kw:["change","routine","would"], example:"I would wake up earlier to have time for exercise." }
+    ]
+  }
+};
+
+/* ====== Study/helpers ====== */
+function norm(s){ return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[.,;:!?()\[\]{}]/g,' ').replace(/\s+/g,' ').trim(); }
+function splitVariants(s){
+  return (s||'')
+    .split(/[\/;|,]/)
+    .map(x => x.trim())
+    .map(norm)
+    .filter(Boolean);
+}
+
+/* synonyma CZ */
+const CZ_SYNONYMS = {
+  "toto": ["tento","tohle"], "tento": ["toto","tohle"], "tohle": ["toto","tento"],
+  "krásný": ["hezký","pěkný"], "hezký": ["krásný","pěkný"], "pěkný": ["hezký","krásný"],
+  "dům": ["barák"], "barák": ["dům"]
+};
+function expandWithSynonyms(arr){
+  const out=new Set(arr);
+  arr.forEach(w=>{ if(CZ_SYNONYMS[w]) CZ_SYNONYMS[w].forEach(s=>out.add(norm(s))); });
+  return [...out];
+}
+
+let hintShown=false;
+const maskWord = w => (w.length<=2 ? w : w[0] + ' _'.repeat(w.length-1));
+function makeHint(raw){
+  const clean = (raw||'').replace(/[()]/g,'').split(/[\/;|]/)[0];
+  return clean.split(/\s+/).filter(Boolean).map(maskWord).join(' ');
+}
+
+/* ====== Render & stats ====== */
+function updateStats(){
+  const arr=currentData();
+  const due=arr.filter(c=>c.due<=now() && (catSelect.value==='all'||(c.category||'')===catSelect.value));
+  const mastered=[...WORDS,...PHRASES].filter(c=>c.interval>=21).length;
+  statDue.textContent=due.length; statCount.textContent=[...WORDS,...PHRASES].length; statMastered.textContent=mastered;
+
+  const k=todayKey(); const d=PROG.days[k]||{good:0,total:0,goalDone:false};
+  todayGood.textContent=d.good||0; todayGoal.textContent=PROG.dailyGoal;
+  const pct=Math.min(100, Math.round(100*(d.good||0)/(PROG.dailyGoal||50))); goalFill.style.width=pct+'%';
+  dayStatus.textContent=d.goalDone?'splněno ✅':'nesplněno'; streakEl.textContent=PROG.streak||0; todayDateLabel.textContent=new Date().toLocaleDateString();
+
+  renderAchievements(); drawChart();
+}
+function renderAchievements(){
+  achWrap.innerHTML='';
+  [{key:'master50',label:'Mistrovských 50',ok:countMastered()>=50},
+   {key:'master100',label:'Mistrovských 100',ok:countMastered()>=100},
+   {key:'master250',label:'Mistrovských 250',ok:countMastered()>=250},
+   {key:'streak7',label:'Streak 7 dní',ok:PROG.streak>=7},
+   {key:'streak30',label:'Streak 30 dní',ok:PROG.streak>=30},
+   {key:'reviews1k',label:'1000 přezkoušení',ok:totalReps()>=1000}
+  ].forEach(a=>{
+    if(a.ok) PROG.achievements[a.key]=true;
+    const div=document.createElement('div'); div.className='achv '+(a.ok?'got':''); div.textContent=(a.ok?'🏅 ':'🔒 ')+a.label; achWrap.appendChild(div);
+  });
+  save(KEY_PROG, PROG);
+}
+
+/* ====== Study flow ====== */
+let current=null;
+function startStudy(){ tableWrap.style.display='none'; talkWrap.style.display='none'; statsWrap.style.display='none'; quizWrap.style.display='none'; studyView.style.display='block'; pickNext(); }
+function stopStudy(){ studyView.style.display='none'; tableWrap.style.display='block'; }
+function pickNext(){
+  const src=currentData().filter(c=>{
+    const dueOK=c.due<=now();
+    const catOK=(catSelect.value==='all'||(c.category||'')===catSelect.value);
+    return dueOK && catOK;
+  }).sort((a,b)=>(a.due-b.due)||(a.reps-b.reps));
+  leftToday.textContent=src.length; current=src[0];
+  answerInput.value=''; feedback.style.display='none'; rateRow.style.display='none';
+  if(!current){ frontTxt.textContent='Vše hotovo 🎉'; backTxt.textContent=''; backTxt.dataset.raw=''; document.getElementById('masterChip').style.visibility='hidden'; return; }
+  document.getElementById('masterChip').style.visibility='visible';
+  document.getElementById('masterChip').textContent=current.interval>=21?'Pokročilé ✓':'Učení';
+  frontTxt.textContent= reverse? (current.definition||'(doplň CZ)') : current.term;
+  const backRaw= reverse? current.term : (current.definition||'(doplň CZ)'); backTxt.textContent=backRaw; backTxt.dataset.raw=backRaw;
+  frontTxt.classList.add('pop'); setTimeout(()=>frontTxt.classList.remove('pop'),220);
+  hintShown=false;
+}
+
+/* ====== Check answer (auto-hint + auto-advance) ====== */
+function checkAnswer(){
+  if(!current){ return; }
+  const user=norm(answerInput.value);
+  let gold=splitVariants(backTxt.dataset.raw||backTxt.textContent);
+  gold = expandWithSynonyms(gold);
+  const ok=gold.includes(user);
+
+  if(!ok && !hintShown){
+    const hint = makeHint(backTxt.dataset.raw||backTxt.textContent);
+    feedback.style.display='block';
+    backTxt.textContent = 'Nápověda: ' + hint;
+    judge.textContent='Zkus to znovu 😉';
+    judge.style.background='#fff7ed'; judge.style.color='#9a3412';
+    rateRow.style.display='none';
+    hintShown=true;
+    return;
+  }
+
+  feedback.style.display='block';
+  judge.textContent= ok?'Správně ✅':'Nesprávně ❌';
+  judge.style.background= ok?'#dcfce7':'#fee2e2';
+  judge.style.color= ok?'#166534':'#991b1b';
+  backTxt.textContent = backTxt.dataset.raw || backTxt.textContent;
+
+  if (ok) { incToday(1,1); celebrate(); rate('good'); } // auto dál
+  else { rateRow.style.display='flex'; incToday(0,1); }
+  updateStats();
+}
+function rate(kind){ if(!current) return; schedule(current, kind); saveData(); pickNext(); updateStats(); }
+
+/* ====== Shortcuts (ignorují psaní v inputu/textarea) ====== */
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
+  if(e.key==='s' || e.key==='S'){ e.preventDefault(); document.getElementById('studyBtn').click(); }
+  if(e.key==='r' || e.key==='R'){ e.preventDefault(); dirBtn.click(); }
+  if(['1','2','3','4'].includes(e.key) && rateRow.style.display!=='none'){
+    const map={1:'again',2:'hard',3:'good',4:'easy'}; rate(map[e.key]);
+  }
+});
+
+/* ====== Tab switching ====== */
+function setTab(t){
+  ['Words','Phrases','Talk','Stats','Quiz'].forEach(n=>document.getElementById('tab'+n)?.classList?.remove('active'));
+  document.getElementById('tab'+t)?.classList?.add('active');
+  studyView.style.display='none'; tableWrap.style.display='none'; talkWrap.style.display='none'; statsWrap.style.display='none'; quizWrap.style.display='none';
+  if(t==='Words'||t==='Phrases'){ (t==='Words') ? MODE='words' : MODE='phrases'; applyMode(); tableWrap.style.display='block'; }
+  if(t==='Talk'){ talkWrap.style.display='block'; }
+  if(t==='Stats'){ statsWrap.style.display='block'; drawChart(); }
+  if(t==='Quiz'){ quizWrap.style.display='block'; }
+}
+tabWords.onclick=()=>setTab('Words'); tabPhrases.onclick=()=>setTab('Phrases'); tabTalk.onclick=()=>setTab('Talk'); tabStats.onclick=()=>setTab('Stats'); tabQuiz.onclick=()=>setTab('Quiz');
+function applyMode(){
+  phraseFilters.style.display='flex';
+  addCat.style.display='inline-block';
+  document.getElementById('importTargetLabel').textContent = (MODE==='words' ? 'slovíček' : 'frází (aktuální kategorie)');
+  renderTable(); updateStats();
+}
+
+/* ====== Add form ====== */
+document.getElementById('addForm').onsubmit=()=>{
+  const en=document.getElementById('addEN').value.trim(), cz=document.getElementById('addCZ').value.trim(); if(!en) return false;
+  if(MODE==='words'){
+    if(WORDS.some(c=>c.term.toLowerCase()===en.toLowerCase()
+      && (c.definition||'').toLowerCase()===(cz||'').toLowerCase()
+      && (c.category||'')===(addCat.value||''))){ alert("Tahle dvojice už existuje 👍"); return false; }
+    WORDS.unshift(createCard(en, cz||'', addCat.value||'')); save(KEY_WORDS, WORDS);
+  } else {
+    const cat=addCat.value || 'travel';
+    if(PHRASES.some(c=>c.term.toLowerCase()===en.toLowerCase() && (c.definition||'').toLowerCase()===(cz||'').toLowerCase() && (c.category||'')===cat)){ alert("Tahle fráze už existuje 👍"); return false; }
+    PHRASES.unshift(createCard(en, cz||'', cat)); save(KEY_PHRASES, PHRASES);
+  }
+  document.getElementById('addEN').value=''; document.getElementById('addCZ').value=''; renderTable(); updateStats(); return false;
+};
+
+/* ====== Export / Import / Dedupe ====== */
+document.getElementById('exportBtn').onclick=()=>{
+  const payload={ words:WORDS, phrases:PHRASES, progress:PROG };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='vocab-backup.json'; a.click(); URL.revokeObjectURL(url);
+};
+const modal=document.getElementById('modal'), importText=document.getElementById('importText');
+document.getElementById('importBtn').onclick=()=>{ modal.style.display='flex'; importText.value=''; importText.focus(); };
+document.getElementById('modalCancel').onclick=()=>{ modal.style.display='none'; };
+document.getElementById('modalOk').onclick=()=>{
+  const txt=importText.value.trim(); if(!txt){ modal.style.display='none'; return; }
+  try{
+    let added=0, dup=0;
+    if(txt.startsWith('[')){
+      const arr=JSON.parse(txt);
+      arr.forEach(o=>{
+        if(o && o.term){
+          if(MODE==='words'){
+            if(WORDS.some(c=>c.term.toLowerCase()===String(o.term).toLowerCase() && (c.definition||'').toLowerCase()===(String(o.definition||'').toLowerCase()) && (c.category||'')===(String(o.category||'') ))){ dup++; return; }
+            WORDS.push(createCard(String(o.term), String(o.definition||''), String(o.category||''))); added++;
+          } else {
+            const cat=(o.category||catSelect.value||'travel');
+            if(PHRASES.some(c=>c.term.toLowerCase()===String(o.term).toLowerCase() && (c.definition||'').toLowerCase()===(String(o.definition||'').toLowerCase()) && (c.category||'')===String(cat))){ dup++; return; }
+            PHRASES.push(createCard(String(o.term), String(o.definition||''), String(cat))); added++;
+          }
+        }
+      });
+    } else if (txt.startsWith('{') && txt.includes('"words"')){
+      const pack=JSON.parse(txt);
+      if(Array.isArray(pack.words)) WORDS=pack.words;
+      if(Array.isArray(pack.phrases)) PHRASES=pack.phrases;
+      if(pack.progress) PROG={...{dailyGoal:50,days:{},streak:0,lastDay:null,achievements:{}}, ...pack.progress};
+      added=(pack.words?.length||0)+(pack.phrases?.length||0);
+    } else {
+      txt.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).forEach(w=>{
+        if(MODE==='words'){ if(!WORDS.some(c=>c.term.toLowerCase()===w.toLowerCase() && (c.definition||'')==='' && (c.category||'')==(addCat.value||''))){ WORDS.push(createCard(w,'',addCat.value||'')); added++; } else dup++; }
+        else { const cat=(catSelect.value==='all'?'travel':catSelect.value); if(!PHRASES.some(c=>c.term.toLowerCase()===w.toLowerCase() && (c.definition||'')==='' && (c.category||'')===cat)){ PHRASES.push(createCard(w,'',cat)); added++; } else dup++; }
+      });
+    }
+    save(KEY_WORDS, WORDS); save(KEY_PHRASES, PHRASES); save(KEY_PROG, PROG);
+    renderTable(); updateStats();
+    alert(`Přidáno ${added} položek, přeskočeno duplicit: ${dup}.`);
+  }catch(e){ alert('Import se nepodařil. Zkus validní JSON nebo prostý seznam.'); }
+  modal.style.display='none';
+};
+document.getElementById('dedupeBtn').onclick=()=>{
+  let arr=currentData(); const map=new Map(); let removed=0;
+  const keyFor=c=> (MODE==='words' ? `${c.term.toLowerCase()}|${(c.definition||'').toLowerCase()}|${c.category||''}` : `${c.term.toLowerCase()}|${(c.definition||'').toLowerCase()}|${c.category||''}`);
+  const out=[]; arr.forEach(c=>{
+    const k=keyFor(c);
+    if(!map.has(k)){ map.set(k,c); out.push(c); }
+    else{ const t=map.get(k); t.reps=(t.reps||0)+(c.reps||0); t.lapses=(t.lapses||0)+(c.lapses||0); t.interval=Math.max(t.interval||0,c.interval||0); t.due=Math.min(t.due||now(), c.due||now()); removed++; }
+  });
+  setData(out); saveData(); renderTable(); updateStats(); alert(`Hotovo. Odstraněno duplicit: ${removed}.`);
+};
+
+/* ====== Talk (TTS/STT) ====== */
+const voiceSel=document.getElementById('voiceSel'); let voices=[];
+function loadVoices(){ voices=speechSynthesis.getVoices().filter(v=>v.lang.startsWith('en')); voiceSel.innerHTML = voices.map((v,i)=>`<option value="${i}">${v.name} (${v.lang})</option>`).join('') || '<option value="">Default</option>'; }
+loadVoices(); window.speechSynthesis.onvoiceschanged=loadVoices;
+function speak(text){ if(!text) return; const u=new SpeechSynthesisUtterance(text); u.rate=parseFloat(document.getElementById('rate').value||'1'); const idx=parseInt(voiceSel.value,10); if(!isNaN(idx)&&voices[idx]) u.voice=voices[idx]; u.lang=(u.voice?.lang)||'en-US'; speechSynthesis.cancel(); speechSynthesis.speak(u); }
+function speakLang(text, lang){
+  if(!text) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = parseFloat(document.getElementById('rate')?.value || '1');
+  const vs = speechSynthesis.getVoices();
+  const v = vs.find(v => v.lang && v.lang.toLowerCase().startsWith(lang.toLowerCase()));
+  if (v) u.voice = v; u.lang = v?.lang || lang;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+const SpeechRec=window.SpeechRecognition||window.webkitSpeechRecognition; let rec=null, listening=false;
+function canSTT(){ return !!SpeechRec; }
+let currentQ=null, currentKW=[]; const questionEl=document.getElementById('question'), expectHint=document.getElementById('expectHint'), transcriptEl=document.getElementById('transcript'), feedbackTalk=document.getElementById('feedbackTalk'), scoreEl=document.getElementById('score'), kwBadge=document.getElementById('kwBadge'), lenBadge=document.getElementById('lenBadge'), logEl=document.getElementById('log'), autoAsk=document.getElementById('autoAsk');
+const rnd=a=>a[Math.floor(Math.random()*a.length)], normTalk=s=> (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 '\-]/g,' ').replace(/\s+/g,' ').trim();
+const PROMPTS_ALL={...PROMPTS}; // (případné rozšíření o user fráze níž)
+function newQuestion(){ const topic=document.getElementById('topic').value; const level=document.getElementById('level').value; const pool=PROMPTS_ALL[topic][level]; currentQ=rnd(pool); currentKW=(currentQ.kw||[]); questionEl.textContent=currentQ.q; expectHint.innerHTML='Hledej klíčová slova: <b>'+currentKW.join(', ')+'</b>'; scoreEl.textContent='–'; kwBadge.textContent='–'; lenBadge.textContent='0 slov'; }
+newQuestion();
+function evaluate(answer){
+  const a=normTalk(answer); const words=a.split(' ').filter(Boolean); const len=words.length;
+  const found=currentKW.filter(k=>a.includes(k)); const kwScore=Math.round(100*(found.length/Math.max(1,currentKW.length)));
+  const lenScore=Math.min(100, Math.round((len/12)*100)); const total=Math.round(kwScore*0.7 + lenScore*0.3);
+  scoreEl.textContent=total+'%'; kwBadge.textContent=`${found.length}/${currentKW.length}`; lenBadge.textContent=`${len} slov`;
+  let tip=''; if(found.length<currentKW.length){ const missing=currentKW.filter(k=>!found.includes(k)); tip+=`Zkus použít: ${missing.slice(0,3).join(', ')}. `; } if(len<6) tip+='Zkus delší větu (alespoň 6–10 slov).';
+  const ex = currentQ.example; if (ex) { feedbackTalk.innerHTML = (tip ? tip + ' ' : '') + `💡 Příklad odpovědi: <i>"${ex}"</i>`; } else { feedbackTalk.textContent = tip || 'Skvělé! Pokračuj.'; }
+  logEl.textContent += `\nQ: ${currentQ?.q || '-'}\nA: ${answer}\n→ Score ${total}% (KW ${found.length}/${currentKW.length}, len ${len})\n`; logEl.scrollTop=logEl.scrollHeight;
+  if(autoAsk.checked){ setTimeout(()=>{ newQuestion(); if(navigator.vibrate) navigator.vibrate(15); }, 600); }
+}
+document.getElementById('speakBtn').onclick=()=>{ if(currentQ) speak(currentQ.q); };
+document.getElementById('listenBtn').onclick=startListening;
+document.getElementById('stopBtn').onclick=stopListening;
+document.getElementById('topic').onchange=newQuestion;
+document.getElementById('level').onchange=newQuestion;
+document.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ listening? stopListening() : startListening(); } if(e.ctrlKey && (e.key==='l' || e.key==='L')){ e.preventDefault(); speak(currentQ?.q); }});
+function startListening(){
+  if(!canSTT()){ alert('Bohužel: tenhle prohlížeč nepodporuje rozpoznávání řeči (zkus Chrome/Edge).'); return; }
+  if(listening) return; rec=new SpeechRec(); rec.lang='en-US'; rec.interimResults=true; rec.continuous=false;
+  transcriptEl.textContent='… poslouchám …'; feedbackTalk.textContent=''; listening=true; document.getElementById('listenBtn').disabled=true; document.getElementById('stopBtn').disabled=false;
+  let finalText=''; rec.onresult=(e)=>{ let txt=''; for(let i=e.resultIndex;i<e.results.length;i++){ txt+= e.results[i][0].transcript; if(e.results[i].isFinal) finalText=txt; } transcriptEl.textContent=txt; };
+  rec.onerror=(e)=>{ transcriptEl.textContent='(Chyba rozpoznávání: '+e.error+')'; stopListening(); };
+  rec.onend=()=>{ listening=false; document.getElementById('listenBtn').disabled=false; document.getElementById('stopBtn').disabled=true; evaluate(finalText || transcriptEl.textContent || ''); };
+  rec.start();
+}
+function stopListening(){ if(rec){ try{ rec.stop(); }catch{} }}
+
+/* Vlastní fráze přimíchání */
+try{
+  const pack=JSON.parse(localStorage.getItem('vocab_phrases_v1')||'null');
+  if(Array.isArray(pack)&&pack.length){
+    const byCat={}; pack.forEach(p=>{ const c=p.category||'smalltalk'; (byCat[c]=byCat[c]||[]).push({q:p.term,kw:(p.term||'').toLowerCase().split(/\s+/).slice(0,2), example:p.definition?`"${p.term}" can be answered: ${p.definition}`:undefined}); });
+    ['travel','restaurant','shopping','smalltalk','emergency','free'].forEach(cat=>{
+      const ext=(byCat[cat]||[]).slice(0,3);
+      ['a1','a2','b1'].forEach(level=>{ PROMPTS_ALL[cat][level] = PROMPTS_ALL[cat][level].concat(ext); });
+    });
+  }
+}catch{}
+
+/* ====== Quiz ====== */
+const quizArea = document.getElementById('quizArea');
+const quizTypeSel = document.getElementById('quizType');
+document.getElementById('quizStart')?.addEventListener('click', startQuiz);
+let quizQs=[], quizIdx=0, quizScore=0;
+function pick(a,n){ const arr=a.slice(); const out=[]; while(arr.length && out.length<n){ out.push(arr.splice(Math.floor(Math.random()*arr.length),1)[0]); } return out; }
+function sampleOtherDefs(def, pool, n){ const others = pool.map(x=>x.definition).filter(d=>d && d!==def); return pick(others, n); }
+function buildQuiz(){
+  const pool = (MODE==='phrases' ? PHRASES : WORDS).filter(x=>x.term && x.definition);
+  const base = pick(pool, Math.min(10, pool.length));
+  const type = quizTypeSel.value;
+  return base.map(q=>{
+    const t = (type==='mix') ? ['mc','typing','listening'][Math.floor(Math.random()*3)] : (type==='mc'?'mc':type==='typing'?'typing':'listening');
+    return { t, term:q.term, def:q.definition };
+  });
+}
+function renderQuizQ(){
+  if(!quizArea) return;
+  if(quizIdx>=quizQs.length){
+    quizArea.innerHTML = `<div class="h1" style="font-size:18px">Hotovo!</div><div class="muted">Skóre: <b>${quizScore}/${quizQs.length}</b></div><button class="btn" id="quizAgain">Znovu</button>`;
+    document.getElementById('quizAgain').onclick=startQuiz; return;
+  }
+  const q=quizQs[quizIdx];
+  if(q.t==='mc'){
+    const fake = sampleOtherDefs(q.def, (MODE==='phrases'?PHRASES:WORDS), 3);
+    const opts = pick([q.def, ...fake], Math.min(4, 1+fake.length));
+    quizArea.innerHTML = `
+      <div class="muted">(${quizIdx+1}/${quizQs.length}) Vyber překlad</div>
+      <div class="front" style="margin-top:6px">${q.term}</div>
+      <div class="row" style="flex-wrap:wrap; gap:8px; margin-top:10px">
+        ${opts.map(o=>`<button class="btn" data-opt="${o.replace(/"/g,'&quot;')}">${o}</button>`).join('')}
+      </div>
+    `;
+    quizArea.querySelectorAll('button[data-opt]').forEach(b=>{
+      b.onclick=()=>{
+        if(b.getAttribute('data-opt')===q.def){ b.classList.add('primary'); quizScore++; } else { b.style.borderColor='#dc2626'; }
+        setTimeout(()=>{ quizIdx++; renderQuizQ(); }, 350);
+      };
+    });
+  } else if(q.t==='typing'){
+    quizArea.innerHTML = `
+      <div class="muted">(${quizIdx+1}/${quizQs.length}) Napiš překlad</div>
+      <div class="front" style="margin-top:6px">${q.term}</div>
+      <div class="row" style="margin-top:8px">
+        <input id="quizAns" placeholder="překlad…" style="flex:1;min-width:220px">
+        <button class="btn primary" id="quizCheck">Zkontrolovat</button>
+      </div>
+      <div class="muted" id="quizFb" style="margin-top:8px"></div>
+    `;
+    document.getElementById('quizCheck').onclick=()=>{
+      const u = norm(document.getElementById('quizAns').value);
+      const ok = splitVariants(q.def).includes(u);
+      document.getElementById('quizFb').innerHTML = ok ? '✅ Správně' : `❌ Správně: <b>${q.def}</b>`;
+      if(ok) quizScore++; setTimeout(()=>{ quizIdx++; renderQuizQ(); }, 450);
+    };
+  } else { // listening
+    quizArea.innerHTML = `
+      <div class="muted">(${quizIdx+1}/${quizQs.length}) Poslechni si slovo a napiš překlad</div>
+      <div class="row" style="gap:8px;margin-top:6px">
+        <button class="btn" id="quizSpeak">🔊 Přehrát</button>
+        <input id="quizAns" placeholder="překlad…" style="flex:1;min-width:220px">
+        <button class="btn primary" id="quizCheck">Zkontrolovat</button>
+      </div>
+      <div class="muted" id="quizFb" style="margin-top:8px"></div>
+    `;
+    document.getElementById('quizSpeak').onclick=()=>speakLang(q.term,'en-US');
+    document.getElementById('quizCheck').onclick=()=>{
+      const u = norm(document.getElementById('quizAns').value);
+      const ok = splitVariants(q.def).includes(u);
+      document.getElementById('quizFb').innerHTML = ok ? '✅ Správně' : `❌ Správně: <b>${q.def}</b>`;
+      if(ok) quizScore++; setTimeout(()=>{ quizIdx++; renderQuizQ(); }, 450);
+    };
+  }
+}
+function startQuiz(){
+  const pool = (MODE==='phrases'?PHRASES:WORDS).filter(x=>x.term && x.definition);
+  if(pool.length<4){ alert('Potřebuješ aspoň 4 položky s vyplněným překladem.'); return; }
+  quizQs = buildQuiz(); quizIdx=0; quizScore=0; renderQuizQ();
+}
+
+/* ====== Speak buttons & UI handlers ====== */
+document.getElementById('speakFront').onclick=()=>{
+  const txt = reverse ? (current?.definition||'') : (current?.term||'');
+  speakLang(txt, reverse ? 'cs-CZ' : 'en-US');
+};
+document.getElementById('speakBack').onclick=()=>{
+  const txt = reverse ? (current?.term||'') : (current?.definition||'');
+  speakLang(txt, reverse ? 'en-US' : 'cs-CZ');
+};
+document.getElementById('hintBtn').onclick=()=>{ 
+  if(!hintShown && current){ 
+    const hint = makeHint(backTxt.dataset.raw||backTxt.textContent);
+    feedback.style.display='block';
+    backTxt.textContent = 'Nápověda: ' + hint;
+    judge.textContent='Zkus to 😉';
+    judge.style.background='#fff7ed'; judge.style.color='#9a3412';
+    rateRow.style.display='none';
+    hintShown=true;
+  }
+};
+
+document.getElementById('studyBtn').onclick=()=>{ if(studyView.style.display==='none') startStudy(); else stopStudy(); };
+dirBtn.onclick=()=>{ reverse=!reverse; dirBtn.textContent= reverse?'CZ → EN':'EN → CZ'; if(studyView.style.display!=='none') pickNext(); };
+search.oninput=()=>renderTable();
+checkBtn.onclick=()=>checkAnswer();
+answerInput.addEventListener('keydown', e=>{ if(e.key==='Enter') checkAnswer(); });
+showAnsBtn.onclick=()=>{ feedback.style.display='block'; judge.textContent='Zobrazeno'; judge.style.background='#f3f4f6'; judge.style.color='#374151'; rateRow.style.display='flex'; };
+
+/* ====== Chart ====== */
+function drawChart(){
+  const c=document.getElementById('chart'); if(!c) return; const ctx=c.getContext('2d'); const W=c.width, H=c.height;
+  ctx.clearRect(0,0,W,H); ctx.font='12px system-ui'; ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--text')||'#111';
+  const days=14; const labels=[]; const vals=[]; const today=new Date(); for(let i=days-1;i>=0;i--){ const d=new Date(today); d.setDate(d.getDate()-i); const k=d.toISOString().slice(0,10); labels.push((d.getDate())+'.'+(d.getMonth()+1)); vals.push((PROG.days[k]?.good)||0); }
+  const max=Math.max(10, ...vals); const padL=32, padB=24, padT=10, padR=10; const plotW=W-padL-padR, plotH=H-padT-padB; const barW=plotW/days*0.6;
+  ctx.strokeStyle='rgba(0,0,0,.2)'; ctx.beginPath(); ctx.moveTo(padL, H-padB+0.5); ctx.lineTo(W-padR, H-padB+0.5); ctx.stroke();
+  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent')||'#6366f1';
+  vals.forEach((v,i)=>{ const x=padL + i*(plotW/days) + (plotW/days - barW)/2; const h=Math.round((v/max)*plotH); const y=H-padB - h; ctx.fillRect(x,y,barW,h); });
+  ctx.fillStyle='rgba(0,0,0,.5)'; for(let i=0;i<days;i+=Math.ceil(days/7)){ const x=padL + i*(plotW/days); ctx.fillText(labels[i], x, H-6); }
+}
+
+/* ====== Goal & PWA/Manifest patch ====== */
+saveGoalBtn.onclick=()=>{ setDailyGoal(goalInput.value); updateStats(); };
+let deferredPrompt=null; window.addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); deferredPrompt=e; const b=document.getElementById('installBtn'); b.style.display='inline-block'; b.onclick=async()=>{ if(!deferredPrompt) return; deferredPrompt.prompt(); deferredPrompt=null; b.style.display='none'; }; });
+
+// Service worker jen přes http/https (ne přes file://)
+if (location.protocol.startsWith('http') && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+// CORS fix: manifest při file:// vytvoříme inline
+if (location.protocol === 'file:') {
+  const inlineManifest = {
+    name: "VocabTrainer Pro",
+    short_name: "VocabPro",
+    start_url: "./vocabtrainer.html",
+    display: "standalone",
+    background_color: "#0b1220",
+    theme_color: "#0b1220",
+    icons: [
+      { src: "icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "icon-512.png", sizes: "512x512", type: "image/png" }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(inlineManifest)], { type: "application/manifest+json" });
+  const url = URL.createObjectURL(blob);
+  let link = document.querySelector('link[rel="manifest"]');
+  if (!link) { link = document.createElement('link'); link.rel = 'manifest'; document.head.appendChild(link); }
+  link.href = url;
+}
+
+/* ====== Init ====== */
+function firstRun(){
+  document.getElementById('todayDateLabel').textContent=new Date().toLocaleDateString();
+  todayGoal.textContent=PROG.dailyGoal; updateStats(); applyMode();
+}
+firstRun();
+</script>
+</body>
+</html>
